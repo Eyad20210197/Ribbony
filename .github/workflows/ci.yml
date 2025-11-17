@@ -1,0 +1,30 @@
+name: Basic CI (Setup Phase)
+
+on:
+  push:
+    branches: [ "main", "dev" ]
+  pull_request:
+    branches: [ "main", "dev" ]
+
+jobs:
+  verify-structure:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Show repository tree
+        run: |
+          echo "Project structure:"
+          ls -R .
+          
+      - name: Validate that required folders exist
+        run: |
+          if [ ! -d "./docs" ]; then echo "ERROR: docs/ missing"; exit 1; fi
+          if [ ! -d "./design" ]; then echo "ERROR: design/ missing"; exit 1; fi
+          if [ ! -d "./.chat_agents" ]; then echo "ERROR: .chat_agents/ missing"; exit 1; fi
+          echo "Folder structure OK."
+
+      - name: Basic Success
+        run: echo "CI passed. Backend/frontend will be added later."
