@@ -1,8 +1,10 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useApi } from '@/lib/api';
 import { useAppStore } from '@/store/useAppStore';
+import { authClient } from '@/services/authClient';
 
 type Product = {
   id: string;
@@ -30,6 +32,22 @@ type Order = {
 };
 
 function AdminHeader() {
+  // read user and logout from store (non-destructive)
+  const user = useAppStore((s) => s.user);
+  const logout = useAppStore((s) => s.logout);
+  const router = useRouter();
+
+  const handleSignOut = async () => {
+    try {
+      await fetch('/api/auth/signout', { method: 'POST', credentials: 'include' });
+    } catch (err) {
+      // ignore
+    }
+    try { authClient.clearToken(); } catch {}
+    try { logout(); } catch {}
+    router.push('/');
+  };
+
   return (
     <div className="header-frame mb-6 flex items-center justify-between">
       <div>
@@ -37,8 +55,17 @@ function AdminHeader() {
         <div className="site-sub">Management Console</div>
       </div>
       <div className="flex items-center gap-3">
-        <button className="hamburger">≡</button>
-        <div className="product-card">Signed in as <strong>admin</strong></div>
+        <button className="hamburger" aria-label="Toggle admin menu">≡</button>
+        <div className="product-card" role="status">
+          {user?.firstName ? (
+            <>
+              Signed in as <strong>{user.firstName}</strong>
+              <button className="sticker-btn ml-3" onClick={handleSignOut} style={{ marginLeft: 12 }}>Sign out</button>
+            </>
+          ) : (
+            <>Not signed in</>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -68,11 +95,47 @@ export default function AdminDashboardPage() {
   const api = useApi();
   const setLoading = useAppStore((s) => s.setLoading);
 
+  // auth-related store reads
+  const user = useAppStore((s) => s.user);
+  const isAdminFn = useAppStore((s) => (typeof s.isAdmin === 'function' ? s.isAdmin : undefined));
+  const logout = useAppStore((s) => s.logout);
+
+  const router = useRouter();
+
   const [section, setSection] = useState<'overview' | 'products' | 'orders'>('overview');
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showNewProduct, setShowNewProduct] = useState(false);
+
+  // helper to determine admin role (fallback to inspecting user.role)
+  const isAdmin = (() => {
+    try {
+      if (typeof isAdminFn === 'function') return isAdminFn();
+      if (!user) return false;
+      const r = (user as any).role ?? '';
+      return !!(r && (r === 'ADMIN' || r === 'Admin' || r === 'admin'));
+    } catch {
+      return false;
+    }
+  })();
+
+  // Redirect non-admins / unauthenticated visitors to login
+  useEffect(() => {
+    // If user explicitly null => not signed in => redirect
+    if (user === null) {
+      router.replace('/login');
+      return;
+    }
+
+    // If user exists but not admin => redirect
+    if (user && !isAdmin) {
+      router.replace('/login');
+      return;
+    }
+
+    // else allow admin to stay
+  }, [user, isAdmin, router]);
 
   // fetch products (admin)
   async function loadProducts() {
@@ -94,9 +157,15 @@ export default function AdminDashboardPage() {
   }
 
   useEffect(() => {
+    // only fetch when user is admin
+    if (!user || !isAdmin) return;
     loadProducts();
     loadOrders();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, isAdmin]);
+
+  // While redirecting or not authorized — avoid flicker by rendering nothing
+  if (!user || !isAdmin) return null;
 
   return (
     <div>
@@ -159,7 +228,7 @@ export default function AdminDashboardPage() {
                       </div>
                       <div className="pc-meta">
                         <h3 className="pc-title">{p.name}</h3>
-                        <div className="pc-price">{p.price} USD</div>
+                        <div className="pc-price">{p.price} EGP</div>
                         <div className="pr-cta-row mt-3">
                           <button className="pc-cta" onClick={() => alert('Edit not implemented in single-file demo')}>Edit</button>
                           <button className="sticker-btn" onClick={async ()=>{

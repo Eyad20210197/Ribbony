@@ -14,7 +14,7 @@ export type Product = {
 export default function ProductCard({ product }: { product: Product }) {
   return (
     <article className="pc-card" aria-labelledby={`pc-${product.id}-title`}>
-      {/* sticker (decorative) */}
+      
       <div className="pc-sticker" aria-hidden>
         {product.sticker ? (
           // eslint-disable-next-line @next/next/no-img-element
