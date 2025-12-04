@@ -56,6 +56,7 @@ public class AuthService {
         newUser.setUserFirstName(registerRequest.getFirstName());
         newUser.setUserLastName(registerRequest.getLastName());
         newUser.setUserRole(UserRole.USER);
+        newUser.setUserAddress(registerRequest.getAddress());
 
         userRepositryObj.save(newUser);
 

@@ -1,14 +1,15 @@
-package com.ribbony.ribbony.Modules.AuthModule.dto;
+package com.ribbony.ribbony.Modules.UserModule.dto;
 
 import lombok.Data;
 
 @Data
-public class RegisterRequest {
- 
+public class CreateUserRequest {
+    
     private String firstName;
     private String lastName;
     private String email;
     private String password;
     private String address;
-
+    private String role;
+    
 }

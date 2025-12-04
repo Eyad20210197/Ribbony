@@ -1,4 +1,5 @@
 package com.ribbony.ribbony.Modules.AuthModule.dto;
+
 import lombok.Data;
 
 @Data

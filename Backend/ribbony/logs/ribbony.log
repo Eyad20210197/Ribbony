@@ -1,0 +1,2 @@
+2025-12-04T17:12:56.656+02:00  INFO 14852 --- [ribbony] [main] com.ribbony.ribbony.RibbonyApplication   : Starting RibbonyApplication using Java 21.0.4 with PID 14852 (C:\Users\DELL\Ribbony\Backend\ribbony\target\classes started by DELL in C:\Users\DELL\Ribbony\backend\ribbony)
+2025-12-04T17:12:56.659+02:00  INFO 14852 --- [ribbony] [main] com.ribbony.ribbony.RibbonyApplication   : No active profile set, falling back to 1 default profile: "default"
