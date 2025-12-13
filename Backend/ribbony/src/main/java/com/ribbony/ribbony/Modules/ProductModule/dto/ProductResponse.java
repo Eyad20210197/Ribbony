@@ -1,13 +1,14 @@
 package com.ribbony.ribbony.Modules.ProductModule.dto;
 
+import java.math.BigDecimal;
 import lombok.Data;
 
 @Data
 public class ProductResponse {
-    private Integer id;
+    private int id;
     private String name;
-    private String price;
+    private  BigDecimal price;
     private String description;
     private String category;
-    private String productImagesJson;
+    private String productImage;
 }

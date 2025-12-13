@@ -151,6 +151,33 @@ function PasswordField({ registerReturn, error, id = 'password', placeholder = '
   );
 }
 
+/* ---------------------------
+   Social (Google) login button
+   --------------------------- */
+function SocialLoginButton() {
+  const handleGoogle = () => {
+    // start OAuth flow on backend
+    window.location.href = 'http://localhost:9090/oauth2/authorization/google';
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleGoogle}
+      className={`${styles.primaryBtn} ${styles.googleBtn}`}
+      aria-label="Sign in with Google"
+    >
+      <span className={styles.googleIcon} aria-hidden>
+        {/* simple Google glyph (SVG) */}
+        <svg width="18" height="18" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" role="img">
+          <path d="M44.5 20H24v8.5h11.9C33 33.5 29 36 24 36c-7.2 0-13-5.8-13-13s5.8-13 13-13c3.3 0 6.2 1.2 8.4 3.2l6-6C34.1 3.7 29.4 2 24 2 12.4 2 3 11.4 3 23s9.4 21 21 21c10.6 0 19.4-7.4 20.9-17.5.1-.7.1-1.5.1-2.5 0-1-.1-1.7-.5-3z" fill="#4285F4"/>
+        </svg>
+      </span>
+      <span style={{ marginLeft: 10 }}>Sign in with Google</span>
+    </button>
+  );
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const setUser = useAppStore((s) => s.setUser);
@@ -246,9 +273,12 @@ export default function LoginPage() {
         </div>
         {errors.agree && <div style={{ color: '#dc2626', fontSize: 13 }}>{errors.agree.message}</div>}
 
-        <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
+        <div style={{ display: 'flex', gap: 10, marginTop: 6, alignItems: 'center' }}>
           <button type="submit" className={styles.primaryBtn}>Sign in</button>
           <button type="button" className={styles.secondaryBtn} onClick={() => router.push('/register')}>Sign up</button>
+
+          {/* Google social button (visually aligned with primary) */}
+          <SocialLoginButton />
         </div>
 
         <div className={styles.meta}>

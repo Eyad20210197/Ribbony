@@ -1,103 +1,60 @@
 package com.ribbony.ribbony.Modules.UserModule.Controllers;
 
-import java.util.List;
-import java.util.stream.Collectors;
-
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.validation.BindingResult;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-import com.ribbony.ribbony.Modules.UserModule.Services.UserService;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
 
+import com.ribbony.ribbony.Modules.UserModule.Services.UserService;
 import com.ribbony.ribbony.Modules.UserModule.dto.ChangeEmailRequest;
 import com.ribbony.ribbony.Modules.UserModule.dto.ChangePasswordRequest;
 import com.ribbony.ribbony.Modules.UserModule.dto.CreateUserRequest;
 import com.ribbony.ribbony.Modules.UserModule.dto.UpdateUserRequest;
+import com.ribbony.ribbony.Modules.UserModule.dto.UserResponse;
 
 @RestController
 @RequestMapping("/user")
 public class UserController {
- 
+
     @Autowired
     private UserService userServiceObj;
 
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/getUser/{id}")
-    public ResponseEntity<?> getExistingUser(@PathVariable int id) {
-
-        return ResponseEntity.ok(userServiceObj.getUser(id));
-
+    public UserResponse getExistingUser(@PathVariable int id) {
+        return userServiceObj.getUser(id);
     }
 
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/addNewUser")
-    public ResponseEntity<?> addNewUser(@Valid@RequestBody CreateUserRequest request, BindingResult result) {
-
-        if (result.hasErrors()) {
-            List<String> errors = result.getFieldErrors()
-                    .stream()
-                    .map(error -> error.getField() + ": " + error.getDefaultMessage())
-                    .collect(Collectors.toList());
-
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errors);
-        }
-
-        return ResponseEntity.ok(userServiceObj.addUser(request));
-
+    public UserResponse addNewUser(@Valid @RequestBody CreateUserRequest request) {
+        return userServiceObj.addUser(request);
     }
-    
+
     @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/deleteAccount/{id}")
     public String deleteAccount(@PathVariable int id) {
-
-        return userServiceObj.deleteUser(id); 
-
+        return userServiceObj.deleteUser(id);
     }
 
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/updateUser")
-    public ResponseEntity<?> updateExistingUser(@Valid@RequestBody UpdateUserRequest request, BindingResult result) {
-
-        if (result.hasErrors()) {
-            List<String> errors = result.getFieldErrors()
-                    .stream()
-                    .map(error -> error.getField() + ": " + error.getDefaultMessage())
-                    .collect(Collectors.toList());
-
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errors);
-        }
-
-        return ResponseEntity.ok(userServiceObj.updateUser(request));
-
+    public UserResponse updateExistingUser(@Valid @RequestBody UpdateUserRequest request) {
+        return userServiceObj.updateUser(request);
     }
 
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/changeEmail")
-    public String changeUserEmail(@RequestBody ChangeEmailRequest request) {
-        
-        userServiceObj.changeUserEmail(request);
-        return "Email changed successfully";
-
+    public UserResponse changeUserEmail(@Valid @RequestBody ChangeEmailRequest request) {
+        return userServiceObj.changeUserEmail(request);
     }
 
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/changePassword")
-    public String changeUserPassword(@RequestBody ChangePasswordRequest request) {
-        
-        userServiceObj.changeUserPassword(request);
-        return "Password changed successfully";
-
+    public UserResponse changeUserPassword(@Valid @RequestBody ChangePasswordRequest request) {
+        return userServiceObj.changeUserPassword(request);
     }
-   
+
+    // NOTE: validation and errors handled globally by GlobalExceptionHandler (@ControllerAdvice)
 }

@@ -12,8 +12,9 @@ import com.ribbony.ribbony.Modules.UserModule.dto.ChangePasswordRequest;
 import com.ribbony.ribbony.Modules.UserModule.dto.CreateUserRequest;
 import com.ribbony.ribbony.Modules.UserModule.dto.UpdateUserRequest;
 import com.ribbony.ribbony.Modules.UserModule.dto.UserResponse;
+import com.ribbony.ribbony.Modules.SharedInfrastructureModule.exception.BadRequestException;
+import com.ribbony.ribbony.Modules.SharedInfrastructureModule.exception.NotFoundException;
 
-import java.util.NoSuchElementException;
 import java.util.Optional;
 
 @Service
@@ -25,12 +26,10 @@ public class UserService {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
-
     public UserResponse getUser(int id) {
-
         Optional<UserModel> optionalUser = userRepositryObj.findById(id);
         UserModel user = optionalUser.orElseThrow(
-                () -> new NoSuchElementException("User not found with id: " + id)
+                () -> new NotFoundException("User not found with id: " + id)
         );
 
         return buildUserResponse(user);
@@ -42,7 +41,7 @@ public class UserService {
 
         UserModel existingUser = userRepositryObj.findByUserEmail(email);
         if (existingUser != null) {
-            throw new RuntimeException("User already exists with email: " + email);
+            throw new BadRequestException("User already exists with email: " + email);
         }
 
         UserModel newUser = new UserModel();
@@ -50,7 +49,13 @@ public class UserService {
         newUser.setUserPassword(passwordEncoder.encode(request.getPassword()));
         newUser.setUserFirstName(request.getFirstName());
         newUser.setUserLastName(request.getLastName());
-        newUser.setUserRole(UserRole.valueOf(request.getRole()));
+
+        try {
+            newUser.setUserRole(UserRole.valueOf(request.getRole()));
+        } catch (IllegalArgumentException ex) {
+            throw new BadRequestException("Invalid role: " + request.getRole());
+        }
+
         newUser.setUserAddress(request.getAddress());
 
         UserModel savedUser = userRepositryObj.save(newUser);
@@ -61,7 +66,7 @@ public class UserService {
     public String deleteUser(int id) {
 
         if (!userRepositryObj.existsById(id)) {
-            throw new NoSuchElementException("User not found with id: " + id);
+            throw new NotFoundException("User not found with id: " + id);
         }
 
         userRepositryObj.deleteById(id);
@@ -75,7 +80,7 @@ public class UserService {
 
         Optional<UserModel> optionalUser = userRepositryObj.findById(id);
         UserModel user = optionalUser.orElseThrow(
-                () -> new NoSuchElementException("User not found with id: " + id)
+                () -> new NotFoundException("User not found with id: " + id)
         );
 
         if (request.getFirstName() != null) {
@@ -88,7 +93,11 @@ public class UserService {
             user.setUserAddress(request.getAddress());
         }
         if (request.getRole() != null) {
-            user.setUserRole(UserRole.valueOf(request.getRole()));
+            try {
+                user.setUserRole(UserRole.valueOf(request.getRole()));
+            } catch (IllegalArgumentException ex) {
+                throw new BadRequestException("Invalid role: " + request.getRole());
+            }
         }
 
         UserModel updatedUser = userRepositryObj.save(user);
@@ -96,31 +105,30 @@ public class UserService {
         return buildUserResponse(updatedUser);
     }
 
-    public UserResponse changeUserPassword(ChangePasswordRequest request){
-        
+    public UserResponse changeUserPassword(ChangePasswordRequest request) {
+
         Optional<UserModel> optionalUser = userRepositryObj.findById(request.getId());
         UserModel user = optionalUser.orElseThrow(
-                () -> new NoSuchElementException("User not found with id: " + request.getId())
+                () -> new NotFoundException("User not found with id: " + request.getId())
         );
         user.setUserPassword(passwordEncoder.encode(request.getNewPassword()));
         UserModel updatedUser = userRepositryObj.save(user);
 
         return buildUserResponse(updatedUser);
-
     }
 
-    public UserResponse changeUserEmail(ChangeEmailRequest request){
+    public UserResponse changeUserEmail(ChangeEmailRequest request) {
 
         String newEmail = request.getNewEmail().trim().toLowerCase();
 
         UserModel existingWithEmail = userRepositryObj.findByUserEmail(newEmail);
         if (existingWithEmail != null && existingWithEmail.getId() != request.getId()) {
-            throw new RuntimeException("Email is already used by another user: " + newEmail);
+            throw new BadRequestException("Email is already used by another user: " + newEmail);
         }
 
         Optional<UserModel> optionalUser = userRepositryObj.findById(request.getId());
         UserModel user = optionalUser.orElseThrow(
-                () -> new NoSuchElementException("User not found with id: " + request.getId())
+                () -> new NotFoundException("User not found with id: " + request.getId())
         );
 
         user.setUserEmail(newEmail);
@@ -130,15 +138,14 @@ public class UserService {
         return buildUserResponse(updatedUser);
     }
 
-
     private UserResponse buildUserResponse(UserModel user) {
 
         UserResponse response = new UserResponse();
 
-        response.setId(user.getId()); 
+        response.setId(user.getId());
         response.setFirstName(user.getUserFirstName());
         response.setLastName(user.getUserLastName());
-        response.setRole(user.getUserRole().name());
+        response.setRole(user.getUserRole() != null ? user.getUserRole().name() : null);
 
         return response;
     }

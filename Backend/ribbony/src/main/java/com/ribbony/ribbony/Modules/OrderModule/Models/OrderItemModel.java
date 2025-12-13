@@ -1,7 +1,11 @@
 package com.ribbony.ribbony.Modules.OrderModule.Models;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.ribbony.ribbony.Modules.ProductModule.Models.ProductModel;
 
 import java.math.BigDecimal;
+
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -38,6 +42,7 @@ public class OrderItemModel extends com.ribbony.ribbony.Modules.SharedInfrastruc
     private int quantity;
 
     @Column(name ="payload" , columnDefinition = "jsonb")
-    private String payload;
+    @JdbcTypeCode(SqlTypes.JSON)
+    private JsonNode payload;
 
 }

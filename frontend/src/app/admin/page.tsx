@@ -1,328 +1,470 @@
-'use client';
+"use client";
 
-import React, { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useApi } from '@/lib/api';
-import { useAppStore } from '@/store/useAppStore';
-import { authClient } from '@/services/authClient';
+import React, { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useApi } from "@/lib/api";
+import { useAppStore } from "@/store/useAppStore";
+import Link from "next/link";
+import toast from "react-hot-toast";
 
+// Visual Components
+import VintageSquares from "@/components/VintageSquares";
+import Noise from "@/components/Noise";
+
+/* --- Types --- */
 type Product = {
-  id: string;
+  id: number;
   name: string;
   price: number;
-  description?: string;
-  images?: string[];
-};
-
-type OrderItem = {
-  productId: string;
-  product?: Product;
-  priceAtTime: number;
-  quantity: number;
+  description: string;
+  category: string;
+  productImage: string;
 };
 
 type Order = {
-  id: string;
-  customerId: string;
+  id: number;
+  status: string;
+  totalAmount: number;
+  userId: number;
   customerName?: string;
-  status: 'PENDING' | 'WORK_IN_PROGRESS' | 'SHIPPED';
-  total: number;
   createdAt: string;
-  items: OrderItem[];
+  orderItems: any[];
 };
 
-function AdminHeader() {
-  // read user and logout from store (non-destructive)
-  const user = useAppStore((s) => s.user);
-  const logout = useAppStore((s) => s.logout);
-  const router = useRouter();
+type User = {
+  id: number;
+  firstName: string;
+  lastName: string;
+  role: string;
+  email?: string; // Optional because backend UserResponse doesn't always include it
+  address?: string; // Optional
+};
 
-  const handleSignOut = async () => {
+export default function AdminDashboard() {
+  const api = useApi();
+  const router = useRouter();
+  const user = useAppStore((s) => s.user);
+  const isAdmin = useAppStore((s) => s.isAdmin());
+  
+  // --- State ---
+  const [activeTab, setActiveTab] = useState<"products" | "orders" | "users">("products");
+  
+  // Data State
+  const [products, setProducts] = useState<Product[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [users, setUsers] = useState<User[]>([]); // "Found" users list
+  
+  // Product Form State
+  const [isProdEditing, setIsProdEditing] = useState(false);
+  const [prodForm, setProdForm] = useState<Partial<Product>>({});
+
+  // User Form State
+  const [isUserEditing, setIsUserEditing] = useState(false);
+  const [userForm, setUserForm] = useState<Partial<User> & { password?: string }>({});
+  const [userSearchId, setUserSearchId] = useState("");
+
+  // --- Auth Check ---
+  useEffect(() => {
+    if (user && !isAdmin) router.replace("/");
+  }, [user, isAdmin, router]);
+
+  // --- Data Loaders ---
+  const loadProducts = useCallback(async () => {
     try {
-      await fetch('/api/auth/signout', { method: 'POST', credentials: 'include' });
-    } catch (err) {
-      // ignore
+      const data = await api.get("/products/list");
+      setProducts(data || []);
+    } catch (e) { console.error(e); }
+  }, [api]);
+
+  const loadOrders = useCallback(async () => {
+    try {
+      const data = await api.get("/orders/getAllOrders");
+      setOrders(data || []);
+    } catch (e) { console.error(e); }
+  }, [api]);
+
+  useEffect(() => {
+    if (activeTab === "products") loadProducts();
+    if (activeTab === "orders") loadOrders();
+  }, [activeTab, loadProducts, loadOrders]);
+
+  // --- Product Handlers ---
+  const handleDeleteProduct = async (id: number) => {
+    if(!confirm("Delete this product?")) return;
+    await api.delete(`/products/delete/${id}`);
+    loadProducts();
+  };
+
+  const handleSaveProduct = async () => {
+    try {
+      if (prodForm.id) {
+        await api.put(`/products/update/${prodForm.id}`, prodForm);
+      } else {
+        await api.post("/products/save", prodForm);
+      }
+      setIsProdEditing(false);
+      setProdForm({});
+      loadProducts();
+      toast.success("Product saved");
+    } catch (e) { toast.error("Error saving product"); }
+  };
+
+  // --- Order Handlers ---
+  const handleStatusUpdate = async (id: number, status: string) => {
+    await api.put(`/orders/updateStatus/${id}`, { status });
+    loadOrders();
+    toast.success("Order status updated");
+  };
+
+  // --- User Handlers ---
+  const handleSearchUser = async () => {
+    if(!userSearchId) return;
+    try {
+      // Endpoint: GET /user/getUser/{id}
+      const u = await api.get(`/user/getUser/${userSearchId}`);
+      if(u) {
+        // Add to our local list if not already there
+        setUsers(prev => {
+            if(prev.find(existing => existing.id === u.id)) return prev;
+            return [...prev, u];
+        });
+        toast.success("User found");
+      }
+    } catch (e) { toast.error("User not found"); }
+  };
+
+  const handleDeleteUser = async (id: number) => {
+    if(!confirm("Delete this user account? This cannot be undone.")) return;
+    try {
+        await api.delete(`/user/deleteAccount/${id}`);
+        setUsers(prev => prev.filter(u => u.id !== id));
+        toast.success("User deleted");
+    } catch(e) { toast.error("Failed to delete user"); }
+  };
+
+  const handleSaveUser = async () => {
+    try {
+        if (userForm.id) {
+            // Update Existing: PUT /user/updateUser
+            // DTO: id, firstName, lastName, address, role
+            await api.put("/user/updateUser", {
+                id: userForm.id,
+                firstName: userForm.firstName,
+                lastName: userForm.lastName,
+                address: userForm.address,
+                role: userForm.role
+            });
+            toast.success("User updated");
+        } else {
+            // Create New: POST /user/addNewUser
+            // DTO: firstName, lastName, email, password, address, role
+            await api.post("/user/addNewUser", {
+                firstName: userForm.firstName,
+                lastName: userForm.lastName,
+                email: userForm.email,
+                password: userForm.password,
+                address: userForm.address,
+                role: userForm.role || "CUSTOMER"
+            });
+            toast.success("User created");
+        }
+        setIsUserEditing(false);
+        setUserForm({});
+        // If we created a user, we can't easily fetch them without an ID, 
+        // but if we updated, we can refresh the list item locally or re-fetch if we had a "List" endpoint.
+        // For now, we just close the modal.
+    } catch (e: any) {
+        toast.error(e.message || "Error saving user");
     }
-    try { authClient.clearToken(); } catch {}
-    try { logout(); } catch {}
-    router.push('/');
   };
 
   return (
-    <div className="header-frame mb-6 flex items-center justify-between">
-      <div>
-        <div className="site-title">Ribbony — Admin</div>
-        <div className="site-sub">Management Console</div>
-      </div>
-      <div className="flex items-center gap-3">
-        <button className="hamburger" aria-label="Toggle admin menu">≡</button>
-        <div className="product-card" role="status">
-          {user?.firstName ? (
-            <>
-              Signed in as <strong>{user.firstName}</strong>
-              <button className="sticker-btn ml-3" onClick={handleSignOut} style={{ marginLeft: 12 }}>Sign out</button>
-            </>
-          ) : (
-            <>Not signed in</>
-          )}
+    <div className="min-h-screen flex bg-[#f5c3da]">
+      <VintageSquares count={30} density={0.5} />
+      <Noise patternAlpha={15} />
+
+      {/* Sidebar */}
+      <aside className="w-64 bg-white/80 backdrop-blur-md border-r border-black/5 p-6 flex flex-col gap-6 z-10 sticky top-0 h-screen">
+        <div>
+          <h1 className="site-title text-2xl">Ribbony</h1>
+          <p className="site-sub">Admin Console</p>
         </div>
-      </div>
-    </div>
-  );
-}
-
-function Sidebar({ section, setSection }: { section: string; setSection: React.Dispatch<React.SetStateAction<'overview'|'products'|'orders'>> }) {
-  return (
-    <aside className="w-64 mr-6">
-      <div className="product-card mb-4">
-        <div className="font-bold mb-2">Navigation</div>
+        
         <nav className="flex flex-col gap-2">
-          <button onClick={() => setSection('overview')} className={`text-left p-2 rounded ${section==='overview'? 'bg-gray-100': ''}`}>Overview</button>
-          <button onClick={() => setSection('products')} className={`text-left p-2 rounded ${section==='products'? 'bg-gray-100': ''}`}>Products</button>
-          <button onClick={() => setSection('orders')} className={`text-left p-2 rounded ${section==='orders'? 'bg-gray-100': ''}`}>Orders</button>
+          {['products', 'orders', 'users'].map((tab) => (
+             <button 
+                key={tab}
+                onClick={() => setActiveTab(tab as any)} 
+                className={`nav-link text-left px-4 py-3 rounded-lg transition-colors capitalize ${activeTab === tab ? 'bg-white shadow-sm font-bold text-[#e3166d]' : 'hover:bg-white/50'}`}
+             >
+                {tab}
+             </button>
+          ))}
         </nav>
-      </div>
 
-      <div className="product-card">
-        <div className="font-bold mb-2">Quick Actions</div>
-        <button id="create-product" className="btn-add w-full">Create product</button>
-      </div>
-    </aside>
-  );
-}
+        <div className="mt-auto">
+          <Link href="/" className="sticker-btn text-xs w-full text-center block">Back to Site</Link>
+        </div>
+      </aside>
 
-export default function AdminDashboardPage() {
-  const api = useApi();
-  const setLoading = useAppStore((s) => s.setLoading);
-
-  // auth-related store reads
-  const user = useAppStore((s) => s.user);
-  const isAdminFn = useAppStore((s) => (typeof s.isAdmin === 'function' ? s.isAdmin : undefined));
-  const logout = useAppStore((s) => s.logout);
-
-  const router = useRouter();
-
-  const [section, setSection] = useState<'overview' | 'products' | 'orders'>('overview');
-  const [products, setProducts] = useState<Product[]>([]);
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [showNewProduct, setShowNewProduct] = useState(false);
-
-  // helper to determine admin role (fallback to inspecting user.role)
-  const isAdmin = (() => {
-    try {
-      if (typeof isAdminFn === 'function') return isAdminFn();
-      if (!user) return false;
-      const r = (user as any).role ?? '';
-      return !!(r && (r === 'ADMIN' || r === 'Admin' || r === 'admin'));
-    } catch {
-      return false;
-    }
-  })();
-
-  // Redirect non-admins / unauthenticated visitors to login
-  useEffect(() => {
-    // If user explicitly null => not signed in => redirect
-    if (user === null) {
-      router.replace('/login');
-      return;
-    }
-
-    // If user exists but not admin => redirect
-    if (user && !isAdmin) {
-      router.replace('/login');
-      return;
-    }
-
-    // else allow admin to stay
-  }, [user, isAdmin, router]);
-
-  // fetch products (admin)
-  async function loadProducts() {
-    try {
-      const data = await api('/products', { method: 'GET' });
-      setProducts(data || []);
-    } catch (err) {
-      console.error('Failed to load products', err);
-    }
-  }
-
-  async function loadOrders() {
-    try {
-      const data = await api('/orders', { method: 'GET' });
-      setOrders(data || []);
-    } catch (err) {
-      console.error('Failed to load orders', err);
-    }
-  }
-
-  useEffect(() => {
-    // only fetch when user is admin
-    if (!user || !isAdmin) return;
-    loadProducts();
-    loadOrders();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, isAdmin]);
-
-  // While redirecting or not authorized — avoid flicker by rendering nothing
-  if (!user || !isAdmin) return null;
-
-  return (
-    <div>
-      <AdminHeader />
-
-      <div className="flex">
-        <Sidebar section={section} setSection={setSection} />
-
-        <main className="flex-1">
-          {section === 'overview' && (
-            <div>
-              <h2 className="hero-title">Overview</h2>
-              <div className="grid grid-cols-3 gap-6 mt-4">
-                <div className="product-card p-4">Products<br/><div className="text-2xl font-bold">{products.length}</div></div>
-                <div className="product-card p-4">Orders<br/><div className="text-2xl font-bold">{orders.length}</div></div>
-                <div className="product-card p-4">Pending<br/><div className="text-2xl font-bold">{orders.filter(o=>o.status==='PENDING').length}</div></div>
-              </div>
-
-              <div className="product-stage mt-8 checker-hero p-6">
-                <h3 className="hero-title">Recent Orders</h3>
-                <div className="mt-4 space-y-4">
-                  {orders.slice(0,5).map(o=> (
-                    <div key={o.id} className="pr-row product-card p-3 flex items-center justify-between">
-                      <div>
-                        <div className="pr-title">Order #{o.id}</div>
-                        <div className="text-sm">{o.customerName ?? o.customerId} • {new Date(o.createdAt).toLocaleString()}</div>
-                      </div>
-                      <div className="text-right">
-                        <div className="pr-price">{o.total} EGP</div>
-                        <div className="mt-2"><button className="pc-cta" onClick={()=> setSelectedOrder(o)}>View</button></div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+      {/* Main Content */}
+      <main className="flex-1 p-8 overflow-y-auto z-10 h-screen relative">
+        
+        {/* ================= PRODUCTS TAB ================= */}
+        {activeTab === "products" && (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center bg-white/60 p-4 rounded-xl backdrop-blur-sm">
+              <h2 className="text-2xl font-bold font-serif text-[#2b2220]">Product Catalog</h2>
+              <button onClick={() => { setProdForm({}); setIsProdEditing(true); }} className="btn-add shadow-lg">+ Add Product</button>
             </div>
-          )}
 
-          {section === 'products' && (
-            <div>
-              <div className="flex items-center justify-between">
-                <h2 className="hero-title">Products</h2>
-                <div>
-                  <button onClick={()=> setShowNewProduct(true)} className="btn-add">New Product</button>
-                  <button onClick={loadProducts} className="ml-2 sticker-btn">Refresh</button>
-                </div>
-              </div>
-
-              <div className="pg-grid mt-6">
-                {products.map(p => (
-                  <div className="pg-cell" key={p.id}>
-                    <div className="pc-card">
-                      <div className="pc-image-wrap">
-                        {p.images && p.images[0] ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={p.images[0]} alt={p.name} className="pc-image" />
-                        ) : (
-                          <div className="pc-image-fallback" />
-                        )}
-                      </div>
-                      <div className="pc-meta">
-                        <h3 className="pc-title">{p.name}</h3>
-                        <div className="pc-price">{p.price} EGP</div>
-                        <div className="pr-cta-row mt-3">
-                          <button className="pc-cta" onClick={() => alert('Edit not implemented in single-file demo')}>Edit</button>
-                          <button className="sticker-btn" onClick={async ()=>{
-                            if(!confirm('Delete this product?')) return;
-                            setLoading(true);
-                            try{
-                              await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api'}/products/${p.id}`, { method: 'DELETE', credentials: 'include' });
-                              await loadProducts();
-                            }catch(e){ console.error(e); alert('Failed to delete'); }
-                            setLoading(false);
-                          }}>Delete</button>
+            {/* Product Modal */}
+            {isProdEditing && (
+               <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+                 <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setIsProdEditing(false)} />
+                 <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl relative z-[10000] overflow-hidden flex flex-col" style={{ backgroundColor: 'white' }}>
+                    <div className="bg-gray-50 border-b border-gray-100 p-6 flex justify-between items-center">
+                        <h3 className="font-serif font-bold text-xl text-[#2b2220]">{prodForm.id ? "Edit Product" : "New Product"}</h3>
+                        <button onClick={() => setIsProdEditing(false)} className="text-gray-400 hover:text-red-500 text-3xl leading-none">&times;</button>
+                    </div>
+                    <div className="p-6 space-y-5 max-h-[70vh] overflow-y-auto bg-white">
+                        <div className="space-y-1">
+                            <label className="text-xs font-bold uppercase text-gray-500 tracking-wider">Product Name</label>
+                            <input className="admin-input" placeholder="e.g. Vintage Sticker Pack" value={prodForm.name || ""} onChange={e=>setProdForm({...prodForm, name: e.target.value})} />
                         </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {section === 'orders' && (
-            <div>
-              <div className="flex items-center justify-between">
-                <h2 className="hero-title">Orders</h2>
-                <div>
-                  <button onClick={loadOrders} className="sticker-btn">Refresh</button>
-                </div>
-              </div>
-
-              <div className="mt-6 space-y-4">
-                {orders.map(o => (
-                  <div key={o.id} className="product-card p-4 flex items-center justify-between">
-                    <div>
-                      <div className="pr-title">#{o.id} — {o.customerName ?? o.customerId}</div>
-                      <div className="text-sm">{new Date(o.createdAt).toLocaleString()}</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="pr-price">{o.total} EGP</div>
-                      <div className="mt-2 flex gap-2 justify-end">
-                        <select defaultValue={o.status} onChange={async (e)=>{
-                          const newStatus = e.target.value as Order['status'];
-                          try{
-                            await api(`/orders/${o.id}/status`, { method: 'PUT', body: JSON.stringify({ status: newStatus }), headers: { 'Content-Type': 'application/json' } });
-                            await loadOrders();
-                          }catch(err){ console.error(err); alert('Failed to update'); }
-                        }} className="sticker-btn">
-                          <option value="PENDING">PENDING</option>
-                          <option value="WORK_IN_PROGRESS">WORK_IN_PROGRESS</option>
-                          <option value="SHIPPED">SHIPPED</option>
-                        </select>
-                        <button className="pc-cta" onClick={()=> setSelectedOrder(o)}>View</button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {selectedOrder && (
-                <div className="game-modal-backdrop mt-6">
-                  <div className="game-modal">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h3 className="pr-title">Order #{selectedOrder.id}</h3>
-                        <div className="text-sm">{selectedOrder.customerName ?? selectedOrder.customerId} • {new Date(selectedOrder.createdAt).toLocaleString()}</div>
-                      </div>
-                      <button className="modal-close" onClick={()=> setSelectedOrder(null)}>✕</button>
-                    </div>
-
-                    <div className="mt-4">
-                      <h4 className="font-bold">Items</h4>
-                      <div className="mt-2 space-y-2">
-                        {selectedOrder.items.map((it, idx) => (
-                          <div key={idx} className="flex items-center justify-between p-2 border rounded">
-                            <div>
-                              <div className="font-semibold">{it.product?.name ?? it.productId}</div>
-                              <div className="text-sm">Qty: {it.quantity} • Price: {it.priceAtTime} EGP</div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold uppercase text-gray-500 tracking-wider">Price (EGP)</label>
+                                <input className="admin-input" type="number" placeholder="0.00" value={prodForm.price || ""} onChange={e=>setProdForm({...prodForm, price: parseFloat(e.target.value)})} />
                             </div>
-                            <div className="font-bold">{(it.quantity * it.priceAtTime).toFixed(2)} EGP</div>
-                          </div>
-                        ))}
-                      </div>
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold uppercase text-gray-500 tracking-wider">Category</label>
+                                <input className="admin-input" placeholder="e.g. Stationery" value={prodForm.category || ""} onChange={e=>setProdForm({...prodForm, category: e.target.value})} />
+                            </div>
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-xs font-bold uppercase text-gray-500 tracking-wider">Image URL</label>
+                            <input className="admin-input" placeholder="https://..." value={prodForm.productImage || ""} onChange={e=>setProdForm({...prodForm, productImage: e.target.value})} />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-xs font-bold uppercase text-gray-500 tracking-wider">Description</label>
+                            <textarea className="admin-input h-32 resize-none" placeholder="Product details..." value={prodForm.description || ""} onChange={e=>setProdForm({...prodForm, description: e.target.value})} />
+                        </div>
                     </div>
+                    <div className="p-6 border-t border-gray-100 bg-gray-50 flex gap-3 justify-end">
+                        <button onClick={()=>setIsProdEditing(false)} className="px-6 py-2 rounded-lg font-bold text-gray-500 hover:bg-gray-200 transition-colors">Cancel</button>
+                        <button onClick={handleSaveProduct} className="pc-cta px-8 py-2 shadow-lg">Save Product</button>
+                    </div>
+                 </div>
+               </div>
+            )}
 
-                    <div className="mt-4 text-right">
-                      <strong>Total: {selectedOrder.total} EGP</strong>
-                    </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {products.map(p => (
+                <div key={p.id} className="bg-white p-4 rounded-xl shadow-sm border border-black/5 hover:shadow-md transition-shadow group relative z-0">
+                  <div className="w-full h-48 bg-gray-50 rounded-lg mb-4 overflow-hidden flex items-center justify-center relative">
+                     {p.productImage ? (
+                        <img src={p.productImage} alt={p.name} className="h-full w-full object-contain p-4 group-hover:scale-105 transition-transform duration-300" />
+                     ) : (
+                        <div className="text-gray-300 font-bold text-xs uppercase tracking-widest">No Image</div>
+                     )}
+                  </div>
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="font-serif font-bold text-lg text-[#2b2220] leading-tight">{p.name}</div>
+                    <div className="text-[#e3166d] font-bold bg-pink-50 px-2 py-1 rounded text-sm">{p.price}</div>
+                  </div>
+                  <div className="text-xs text-gray-400 uppercase font-bold tracking-wider mb-4">{p.category}</div>
+                  <div className="flex gap-2 border-t border-gray-100 pt-4">
+                    <button onClick={() => { setProdForm(p); setIsProdEditing(true); }} className="flex-1 py-2 rounded-lg bg-gray-100 text-gray-600 text-xs font-bold hover:bg-gray-200 transition-colors">Edit</button>
+                    <button onClick={() => handleDeleteProduct(p.id)} className="flex-1 py-2 rounded-lg border border-red-100 text-red-500 text-xs font-bold hover:bg-red-50 transition-colors">Delete</button>
                   </div>
                 </div>
-              )}
-
+              ))}
             </div>
-          )}
-        </main>
-      </div>
+          </div>
+        )}
+
+        {/* ================= ORDERS TAB ================= */}
+        {activeTab === "orders" && (
+          <div className="space-y-6">
+             <div className="bg-white/60 p-4 rounded-xl backdrop-blur-sm">
+                <h2 className="text-2xl font-bold font-serif text-[#2b2220]">Orders Management</h2>
+             </div>
+             
+             <div className="bg-white rounded-xl shadow-sm border border-black/5 overflow-hidden">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-gray-50 border-b border-gray-100 text-gray-500 uppercase text-xs font-bold tracking-wider">
+                    <tr>
+                      <th className="p-4">ID</th>
+                      <th className="p-4">Customer</th>
+                      <th className="p-4">Date</th>
+                      <th className="p-4">Total</th>
+                      <th className="p-4">Status</th>
+                      <th className="p-4">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {orders.map(order => (
+                      <tr key={order.id} className="hover:bg-gray-50/50 transition-colors">
+                        <td className="p-4 font-mono text-gray-400">#{order.id}</td>
+                        <td className="p-4 font-medium text-[#2b2220]">{order.customerName || `User ${order.userId}`}</td>
+                        <td className="p-4 text-gray-500">{new Date(order.createdAt).toLocaleDateString()}</td>
+                        <td className="p-4 font-bold text-[#2b2220]">{order.totalAmount} EGP</td>
+                        <td className="p-4">
+                          <span className={`px-2 py-1 rounded text-[10px] font-extrabold uppercase tracking-wide border 
+                            ${order.status === 'PENDING' ? 'bg-yellow-50 text-yellow-700 border-yellow-100' : 
+                              order.status === 'SHIPPED' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 
+                              order.status === 'CANCELED' || order.status === 'CANCELLED' ? 'bg-red-50 text-red-700 border-red-100' : 
+                              'bg-blue-50 text-blue-700 border-blue-100'}`}>
+                            {order.status}
+                          </span>
+                        </td>
+                        <td className="p-4">
+                           <div className="flex gap-1">
+                               <button onClick={() => handleStatusUpdate(order.id, "WORK_IN_PROGRESS")} className="p-1.5 rounded hover:bg-blue-50 text-blue-600" title="Mark In Progress">⚙️</button>
+                               <button onClick={() => handleStatusUpdate(order.id, "SHIPPED")} className="p-1.5 rounded hover:bg-emerald-50 text-emerald-600" title="Mark Shipped">🚚</button>
+                               <button onClick={() => handleStatusUpdate(order.id, "CANCELED")} className="p-1.5 rounded hover:bg-red-50 text-red-600" title="Cancel Order">✕</button>
+                           </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+             </div>
+          </div>
+        )}
+        
+        {/* ================= USERS TAB ================= */}
+        {activeTab === "users" && (
+          <div className="space-y-6">
+            <div className="bg-white/60 p-4 rounded-xl backdrop-blur-sm flex justify-between items-center">
+                <h2 className="text-2xl font-bold font-serif text-[#2b2220]">Users</h2>
+                <button onClick={() => { setUserForm({}); setIsUserEditing(true); }} className="btn-add shadow-lg">+ Add User</button>
+            </div>
+            
+            {/* User Search Bar */}
+            <div className="bg-white p-4 rounded-xl shadow-sm border border-black/5 flex gap-4 items-center">
+                <input 
+                    className="flex-1 p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm"
+                    placeholder="Search User by ID..."
+                    value={userSearchId}
+                    onChange={(e) => setUserSearchId(e.target.value)}
+                />
+                <button onClick={handleSearchUser} className="pc-cta px-6 py-3">Search</button>
+            </div>
+
+            {/* Found Users Table */}
+            {users.length > 0 && (
+                <div className="bg-white rounded-xl shadow-sm border border-black/5 overflow-hidden">
+                    <table className="w-full text-left text-sm">
+                        <thead className="bg-gray-50 border-b border-gray-100 text-gray-500 uppercase text-xs font-bold tracking-wider">
+                            <tr>
+                                <th className="p-4">ID</th>
+                                <th className="p-4">First Name</th>
+                                <th className="p-4">Last Name</th>
+                                <th className="p-4">Role</th>
+                                <th className="p-4 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-50">
+                            {users.map(u => (
+                                <tr key={u.id} className="hover:bg-gray-50/50">
+                                    <td className="p-4 font-mono text-gray-400">#{u.id}</td>
+                                    <td className="p-4 font-bold text-[#2b2220]">{u.firstName}</td>
+                                    <td className="p-4">{u.lastName}</td>
+                                    <td className="p-4">
+                                        <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wide border 
+                                            ${u.role === 'ADMIN' ? 'bg-purple-50 text-purple-700 border-purple-100' : 'bg-gray-100 text-gray-600 border-gray-200'}`}>
+                                            {u.role}
+                                        </span>
+                                    </td>
+                                    <td className="p-4 text-right flex justify-end gap-2">
+                                        <button onClick={() => { setUserForm(u); setIsUserEditing(true); }} className="p-2 rounded bg-gray-100 hover:bg-gray-200 text-xs font-bold">Edit</button>
+                                        <button onClick={() => handleDeleteUser(u.id)} className="p-2 rounded bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold">Delete</button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+
+            {/* User Edit/Create Modal */}
+            {isUserEditing && (
+               <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+                 <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setIsUserEditing(false)} />
+                 <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl relative z-[10000] overflow-hidden flex flex-col" style={{ backgroundColor: 'white' }}>
+                    <div className="bg-gray-50 border-b border-gray-100 p-6 flex justify-between items-center">
+                        <h3 className="font-serif font-bold text-xl text-[#2b2220]">{userForm.id ? "Edit User" : "Create User"}</h3>
+                        <button onClick={() => setIsUserEditing(false)} className="text-gray-400 hover:text-red-500 text-3xl leading-none">&times;</button>
+                    </div>
+                    <div className="p-6 space-y-5 max-h-[70vh] overflow-y-auto bg-white">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold uppercase text-gray-500 tracking-wider">First Name</label>
+                                <input className="admin-input" value={userForm.firstName || ""} onChange={e=>setUserForm({...userForm, firstName: e.target.value})} />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold uppercase text-gray-500 tracking-wider">Last Name</label>
+                                <input className="admin-input" value={userForm.lastName || ""} onChange={e=>setUserForm({...userForm, lastName: e.target.value})} />
+                            </div>
+                        </div>
+
+                        {/* Only show Email/Password for NEW users because backend doesn't support easy update of these via generic update endpoint (has separate endpoints) */}
+                        {!userForm.id && (
+                            <>
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold uppercase text-gray-500 tracking-wider">Email</label>
+                                    <input className="admin-input" value={userForm.email || ""} onChange={e=>setUserForm({...userForm, email: e.target.value})} />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold uppercase text-gray-500 tracking-wider">Password</label>
+                                    <input className="admin-input" type="password" value={userForm.password || ""} onChange={e=>setUserForm({...userForm, password: e.target.value})} />
+                                </div>
+                            </>
+                        )}
+
+                        <div className="space-y-1">
+                            <label className="text-xs font-bold uppercase text-gray-500 tracking-wider">Role</label>
+                            <select className="admin-input" value={userForm.role || "CUSTOMER"} onChange={e=>setUserForm({...userForm, role: e.target.value})}>
+                                <option value="CUSTOMER">CUSTOMER</option>
+                                <option value="ADMIN">ADMIN</option>
+                            </select>
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-xs font-bold uppercase text-gray-500 tracking-wider">Address (Optional)</label>
+                            <input className="admin-input" value={userForm.address || ""} onChange={e=>setUserForm({...userForm, address: e.target.value})} />
+                        </div>
+                    </div>
+                    <div className="p-6 border-t border-gray-100 bg-gray-50 flex gap-3 justify-end">
+                        <button onClick={()=>setIsUserEditing(false)} className="px-6 py-2 rounded-lg font-bold text-gray-500 hover:bg-gray-200 transition-colors">Cancel</button>
+                        <button onClick={handleSaveUser} className="pc-cta px-8 py-2 shadow-lg">{userForm.id ? "Update" : "Create"}</button>
+                    </div>
+                 </div>
+               </div>
+            )}
+          </div>
+        )}
+
+      </main>
+      
+      {/* Helper CSS class for inputs (inlined for this file to keep it clean) */}
+      <style jsx global>{`
+        .admin-input {
+            width: 100%;
+            padding: 0.75rem;
+            background-color: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            color: black;
+            outline: none;
+            transition: all 0.2s;
+        }
+        .admin-input:focus {
+            border-color: #e3166d;
+            box-shadow: 0 0 0 1px #e3166d;
+        }
+      `}</style>
     </div>
   );
 }

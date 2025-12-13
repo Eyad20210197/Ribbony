@@ -22,6 +22,11 @@ type AppState = {
   logout: () => void;
   isAdmin: () => boolean;
 
+  // Cart Visibility State (New)
+  isCartOpen: boolean;
+  setCartOpen: (isOpen: boolean) => void;
+
+  // Coupon State
   couponCode?: string | null;
   couponWon: boolean;
   setCoupon: (code?: string | null) => void;
@@ -29,15 +34,15 @@ type AppState = {
 
 export const useAppStore = create(
   subscribeWithSelector<AppState>((set, get) => ({
-    // existing state kept exactly
+    // Loading State
     loading: false,
     setLoading: (v: boolean) => set({ loading: v }),
 
-    // user (was previously just id + name) — we keep old behavior and extend it
+    // User State
     user: null,
     setUser: (u: User) => set({ user: u }),
 
-    // logout: clear user and token but keep other store values intact
+    // Logout Action
     logout: () => {
       try {
         authClient.clearToken();
@@ -45,16 +50,19 @@ export const useAppStore = create(
         // ignore
       }
       set({ user: null });
-      // don't redirect here — SiteHeader or caller can redirect if desired
     },
 
-    // helper to quickly test admin role
+    // Admin Helper
     isAdmin: () => {
       const u = get().user;
       return !!(u && (u.role === 'ADMIN' || u.role === 'Admin' || u.role === 'admin'));
     },
 
-    // coupon features remain unchanged
+    // Cart Visibility Logic (New)
+    isCartOpen: false,
+    setCartOpen: (isOpen) => set({ isCartOpen: isOpen }),
+
+    // Coupon Logic
     couponCode: null,
     couponWon: false,
     setCoupon: (code?: string | null) => set({ couponCode: code ?? null, couponWon: !!code }),

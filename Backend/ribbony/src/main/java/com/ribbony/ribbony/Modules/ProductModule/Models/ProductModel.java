@@ -35,6 +35,6 @@ public class ProductModel extends BaseEntity {
    @Column(name = "category", length = 100)
    private String category;
 
-   @Column(name = "product_images", columnDefinition = "jsonb")
+   @Column(name = "product_images", length = 500)
    private String productImages;
 }

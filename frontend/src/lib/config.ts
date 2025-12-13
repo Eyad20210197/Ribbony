@@ -1,1 +1,2 @@
-export const apiBase = process.env.NEXT_PUBLIC_API_URL ?? '/api';
+// src/lib/config.ts
+export const apiBase = "http://localhost:9092";

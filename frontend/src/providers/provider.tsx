@@ -1,19 +1,8 @@
-// src/providers/Providers.tsx
-'use client';
+"use client";
 
-import React, { ReactNode, useEffect } from 'react';
+import React from "react";
+import { CartProvider } from "@/components/CartContext";
 
-type Props = { children: ReactNode };
-
-export default function Providers({ children }: Props) {
-  // Make sure the document uses the retro theme class if you want
-  useEffect(() => {
-    // Add a class to HTML for any global selectors (optional)
-    document.documentElement.classList.add('ribbony-retro');
-    return () => {
-      document.documentElement.classList.remove('ribbony-retro');
-    };
-  }, []);
-
-  return <>{children}</>;
+export default function Providers({ children }: { children: React.ReactNode }) {
+  return <CartProvider>{children}</CartProvider>;
 }

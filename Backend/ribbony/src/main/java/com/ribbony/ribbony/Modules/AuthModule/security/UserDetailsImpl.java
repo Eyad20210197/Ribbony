@@ -29,7 +29,10 @@ public class UserDetailsImpl implements UserDetails {
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        String roleName = "ROLE_" + userModelObj.getUserRole().name(); 
+        String raw = userModelObj.getUserRole() != null ? userModelObj.getUserRole().name() : "USER";
+        // تنظيف: لو مخزن بصيغة ROLE_ADMIN لا نضيف ROLE_ مرتين
+        String roleClean = raw.startsWith("ROLE_") ? raw.substring(5) : raw;
+        String roleName = "ROLE_" + roleClean;
         return List.of(new SimpleGrantedAuthority(roleName));
     }
 

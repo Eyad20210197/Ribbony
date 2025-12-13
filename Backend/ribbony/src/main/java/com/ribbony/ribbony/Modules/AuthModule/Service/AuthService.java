@@ -10,6 +10,8 @@ import com.ribbony.ribbony.Modules.AuthModule.dto.RegisterRequest;
 import com.ribbony.ribbony.Modules.UserModule.Models.UserModel;
 import com.ribbony.ribbony.Modules.UserModule.Models.UserRole;
 import com.ribbony.ribbony.Modules.UserModule.Repo.UserRepositry;
+import com.ribbony.ribbony.Modules.SharedInfrastructureModule.exception.BadRequestException;
+import com.ribbony.ribbony.Modules.SharedInfrastructureModule.exception.NotFoundException;
 
 @Service
 public class AuthService {
@@ -30,24 +32,24 @@ public class AuthService {
         UserModel user = userRepositryObj.findByUserEmail(email);
 
         if (user == null) {
-            throw new RuntimeException("User not found with email: " + email);
+            throw new NotFoundException("User not found with email: " + email);
         }
 
         if (!passwordEncoder.matches(loginRequest.getPassword(), user.getUserPassword())) {
-            throw new RuntimeException("Invalid password");
+            throw new BadRequestException("Invalid credentials");
         }
 
-        String token = jwtServiceObj.generateToken(user.getUserEmail());
+        String token = jwtServiceObj.generateToken(user);
 
         return buildAuthResponse(user, token);
     }
-    
+
     public AuthResponse register(RegisterRequest registerRequest) {
 
         String email = registerRequest.getEmail().trim().toLowerCase();
 
         if (userRepositryObj.existsByUserEmail(email)) {
-            throw new RuntimeException("User already exists with email: " + email);
+            throw new BadRequestException("User already exists with email: " + email);
         }
 
         UserModel newUser = new UserModel();
@@ -60,7 +62,7 @@ public class AuthService {
 
         userRepositryObj.save(newUser);
 
-        String token = jwtServiceObj.generateToken(newUser.getUserEmail());
+        String token = jwtServiceObj.generateToken(newUser);
 
         return buildAuthResponse(newUser, token);
     }

@@ -4,4 +4,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import com.ribbony.ribbony.Modules.ProductModule.Models.ProductModel;
 
 public interface ProductRepositry extends JpaRepository<ProductModel, Integer> {
+    boolean existsByProductName(String productName);
 }

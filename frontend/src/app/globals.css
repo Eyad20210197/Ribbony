@@ -167,6 +167,11 @@ body {
   box-shadow: 0 6px 12px rgba(0, 0, 0, 0.18);
 }
 
+.cart {
+
+  z-index: 10000;
+}
+
 /* header search (collapsed by default) */
 .header-search {
   height: 0;
@@ -714,15 +719,23 @@ body {
 }
 
 /* ---------- Buttons / CTA / Add to cart ---------- */
+/* In src/app/globals.css */
+
 .btn-add {
-  background: linear-gradient(180deg, var(--accent-green), #22743b);
+  /* Change from green gradient to your Pink Theme */
+  background: linear-gradient(180deg, #e3166d, #c91260); 
   color: white;
-  padding: 10px 22px;
+  padding: 8px 18px; /* Reduced padding slightly */
   border-radius: 10px;
   font-weight: 700;
   letter-spacing: 0.02em;
   border: 2px solid rgba(0, 0, 0, 0.12);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 4px 12px rgba(227, 22, 109, 0.3); /* Pink shadow */
+  transition: transform 0.1s;
+}
+
+.btn-add:hover {
+  transform: translateY(-2px);
 }
 
 /* ---------- Loading overlay ---------- */

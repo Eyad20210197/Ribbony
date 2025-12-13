@@ -1,10 +1,14 @@
-'use client';
-import Link from 'next/link';
-import Image from 'next/image';
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAppStore } from '@/store/useAppStore';
-import { authClient } from '@/services/authClient';
+// src/components/SiteHeader.tsx
+"use client";
+import Link from "next/link";
+import Image from "next/image";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAppStore } from "@/store/useAppStore";
+import { authClient } from "@/services/authClient";
+import CartDrawer from "@/components/CartDrawer";
+import { CartProvider } from "@/components/CartContext";
+import cartService from "@/lib/cartService";
 
 function IconSearch() {
   return (
@@ -34,6 +38,7 @@ export default function SiteHeader(){
   const [searchOpen, setSearchOpen] = useState(false);
   const [cartCount, setCartCount] = useState(0);
   const [loadingUser, setLoadingUser] = useState(true);
+  const [showCart, setShowCart] = useState(false);
 
   const router = useRouter();
 
@@ -58,10 +63,13 @@ export default function SiteHeader(){
     document.documentElement.style.overflow = mobileOpen ? 'hidden' : '';
   }, [mobileOpen]);
 
-  // demo: set a persistent cart count (replace with real state)
-  useEffect(()=> {
-    setCartCount(2);
-  },[]);
+  // Subscribe to cartService to keep header badge up to date
+  useEffect(() => {
+    const unsub = cartService.subscribe((items) => {
+      setCartCount(items.length);
+    });
+    return () => unsub();
+  }, []);
 
   // Try to fetch the authenticated user and populate the store (non-destructive)
   useEffect(()=> {
@@ -77,7 +85,7 @@ export default function SiteHeader(){
 
       // 1) try API
       try {
-        const res = await fetch('/api/me', { method: 'GET', credentials: 'include' });
+        const res = await fetch('/auth/me', { method: 'GET', credentials: 'include' });
         if(!mounted) return;
         if(res.ok){
           const data = await res.json();
@@ -115,7 +123,7 @@ export default function SiteHeader(){
 
   async function handleSignOut() {
     try {
-      await fetch('/api/auth/signout', { method: 'POST', credentials: 'include' });
+      await fetch('/auth/signout', { method: 'POST', credentials: 'include' });
     } catch (err) {
       // ignore — still clear local state
     }
@@ -150,28 +158,26 @@ export default function SiteHeader(){
           </Link>
           </div>
 
-
-
           <nav className="main-nav" role="navigation" aria-label="Main navigation">
             <ul className="nav-list">
-              <li><Link href="/explore" className="nav-link">Explore</Link></li>
+              <li><Link href="/orders" className="nav-link">My Orders</Link></li>
               <li><Link href="/market" className="nav-link">Market</Link></li>
               <li><Link href="/about" className="nav-link">About</Link></li>
             </ul>
           </nav>
 
           <div className="header-actions" style={{display:'flex',gap:12,alignItems:'center'}}>
-            <button
-              className="icon-btn icon-search"
-              aria-label={searchOpen ? "Close search" : "Open search"}
-              onClick={() => setSearchOpen(s => !s)}
-            >
-              <IconSearch />
-            </button>
-
-            <Link href="/cart" className="cart-link" aria-label="Open cart">
+           <div>
+             <button aria-label="Open cart" onClick={() => setShowCart(true)} className="cart-link p-1">
               <IconCart count={cartCount} />
-            </Link>
+             </button>
+
+             {showCart && (
+               <CartProvider>
+                 <CartDrawer onClose={() => setShowCart(false)} />
+               </CartProvider>
+             )}
+           </div>
 
             <div className="desktop-only" style={{display:'flex', alignItems:'center', gap:10}}>
               {/* Auth area */}
