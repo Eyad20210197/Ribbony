@@ -1,0 +1,18 @@
+server:
+  port: 9092
+
+spring:
+  datasource:
+    url: jdbc:postgresql://postgres:5432/ribbony
+    username: postgres
+    password: 123
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
+jwt:
+  secret: FkoqhV+qYQ3mVkaGf5X3iLH9oFAfoxaW/4pb4Cb8MrE=
+  expiration: 3600000

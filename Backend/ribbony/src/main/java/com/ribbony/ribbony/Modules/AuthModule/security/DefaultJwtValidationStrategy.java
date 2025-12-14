@@ -1,38 +1,37 @@
 package com.ribbony.ribbony.Modules.AuthModule.security;
 
 import io.jsonwebtoken.Claims;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.security.core.userdetails.UserDetails;
+
 import com.ribbony.ribbony.Modules.AuthModule.Service.JwtService;
 
-
-@Component("defaultJwtValidationStrategy")
+@Component
 public class DefaultJwtValidationStrategy implements JwtValidationStrategy {
 
-    private final JwtService originalJwtService;
+    private final JwtService jwtService;
 
-    public DefaultJwtValidationStrategy(@Qualifier("jwtService") JwtService originalJwtService) {
-        this.originalJwtService = originalJwtService;
+    public DefaultJwtValidationStrategy(JwtService jwtService) {
+        this.jwtService = jwtService;
     }
 
     @Override
     public Claims extractAllClaims(String token) {
-        return originalJwtService.extractAllClaims(token);
+        return jwtService.extractAllClaims(token);
     }
 
     @Override
     public boolean validateToken(String token, UserDetails userDetails) {
-        return originalJwtService.validateToken(token, userDetails);
+        return jwtService.validateToken(token, userDetails);
     }
 
     @Override
     public boolean isTokenExpired(String token) {
-        return originalJwtService.isTokenExpired(token);
+        return jwtService.isTokenExpired(token);
     }
 
     @Override
     public String refreshToken(String token) {
-        return originalJwtService.refreshToken(token);
+        return jwtService.refreshToken(token);
     }
 }
