@@ -258,16 +258,21 @@ export default function AdminDashboard() {
                  </div>
                </div>
             )}
-
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {products.map(p => (
                 <div key={p.id} className="bg-white p-4 rounded-xl shadow-sm border border-black/5 hover:shadow-md transition-shadow group relative z-0">
-                  <div className="w-full h-48 bg-gray-50 rounded-lg mb-4 overflow-hidden flex items-center justify-center relative">
-                     {p.productImage ? (
-                        <img src={p.productImage} alt={p.name} className="h-full w-full object-contain p-4 group-hover:scale-105 transition-transform duration-300" />
-                     ) : (
-                        <div className="text-gray-300 font-bold text-xs uppercase tracking-widest">No Image</div>
-                     )}
+                  <div className="w-full h-48 bg-gray-50 rounded-lg mb-4 overflow-hidden flex items-center justify-center">
+                    {p.productImage ? (
+                      <img
+                        src={p.productImage}
+                        alt={p.name}
+                        className="max-w-full max-h-full object-contain"
+                      />
+                    ) : (
+                      <div className="text-gray-300 font-bold text-xs uppercase tracking-widest">
+                        No Image
+                      </div>
+                    )}
                   </div>
                   <div className="flex justify-between items-start mb-2">
                     <div className="font-serif font-bold text-lg text-[#2b2220] leading-tight">{p.name}</div>

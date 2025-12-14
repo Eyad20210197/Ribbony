@@ -16,6 +16,7 @@ const STORAGE_KEY = "ribbony_cart_v1";
 class CartService {
   private cart: Product[] = [];
   private listeners: Listener[] = [];
+  items: any;
 
   constructor() {
     try {
@@ -55,7 +56,14 @@ class CartService {
     this.persist();
     this.notify();
   }
-
+  
+  removeOne(id: number) {
+  const index = this.items.findIndex((i: { id: number; }) => i.id === id);
+  if (index !== -1) {
+    this.items.splice(index, 1);
+    this.notify();
+  }
+}
   clear() {
     this.cart = [];
     this.persist();
